@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Room</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f0c29; /* Fallback */
+            background-image: linear-gradient(to top, #0f0c29, #302b63, #24243e);
+        }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #111827; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        #messages {
+             background-color: transparent;
+             background-image: url("data:image/svg+xml,%3Csvg width='52' height='26' viewBox='0 0 52 26' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%231f2937' fill-opacity='0.4'%3E%3Cpath d='M10 10c0-2.21-1.79-4-4-4-3.314 0-6-2.686-6-6h2c0 2.21 1.79 4 4 4 3.314 0 6 2.686 6 6 0 2.21 1.79 4 4 4 3.314 0 6 2.686 6 6 0 2.21 1.79 4 4 4v2c-3.314 0-6-2.686-6-6 0-2.21-1.79-4-4-4-3.314 0-6-2.686-6-6zm25.464-1.95l8.486 8.486-1.414 1.414-8.486-8.486 1.414-1.414z'/%3E%3C/g%E3C/g%3E%3C/svg%3E");
+        }
+        emoji-picker.dark {
+            --background: #1f2937;
+            --border-color: #374151;
+            --input-background: #374151;
+            --text-color: #f3f4f6;
+            --secondary-text-color: #9ca3af;
+        }
+        .notification-badge {
+            min-width: 20px;
+            height: 20px;
+            padding: 0 6px;
+            background-color: #ef4444;
+            border-radius: 10px;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            display: none; /* Hidden by default */
+        }
+    </style>
+</head>
+<body class="text-white flex items-center justify-center h-screen overflow-hidden">
+
+    <!-- Login Modal -->
+    <div id="modal" class="absolute inset-0 bg-gray-900 bg-opacity-70 flex flex-col items-center justify-center p-4 z-20 transition-opacity duration-300">
+        
+        <h1 class="text-4xl font-bold text-center text-white mb-8 animate-fade-in">👋 Welcome to Private Chat Server</h1>
+
+        <div class="bg-gray-800/90 backdrop-blur-sm p-8 rounded-2xl shadow-2xl w-full max-w-sm border border-gray-700 animate-fade-in">
+            <h2 class="text-3xl font-bold mb-6 text-center text-blue-400">Join the Chat</h2>
+            <form id="join-form">
+                <div class="mb-6">
+                    <label for="username" class="block text-gray-400 text-sm font-bold mb-2">Username</label>
+                    <input type="text" id="username" class="shadow-inner appearance-none border border-gray-600 rounded-lg w-full py-3 px-4 bg-gray-700 text-white leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter your name" required autocomplete="off">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-transform transform hover:scale-105 duration-200">
+                    Enter Chat
+                </button>
+                <p id="error-message" class="text-red-400 text-center mt-4 text-sm h-4"></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Chat Interface -->
+    <div id="chat-container" class="w-full h-full max-w-7xl mx-auto flex flex-row p-4 gap-x-4 opacity-0 scale-95 transition-all duration-300 pointer-events-none">
+        
+        <!-- Left Panel: Chat -->
+        <div class="flex-grow bg-black/20 backdrop-blur-sm rounded-2xl flex flex-col shadow-lg border border-gray-700 overflow-hidden relative">
+            <!-- Chat Header -->
+            <div id="chat-header" class="border-b border-gray-700 p-4 flex items-center justify-between flex-shrink-0">
+                <h3 id="chat-title" class="text-xl font-bold text-white">💬 Private Chat Room</h3>
+                <div class="flex items-center space-x-4">
+                    <div id="clock" class="text-sm text-gray-400 font-medium"></div>
+                    <div class="flex items-center space-x-2">
+                        <span class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
+                        <span class="text-sm text-gray-400">Connected</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Messages Area -->
+            <div id="messages" class="flex flex-col flex-grow space-y-4 overflow-y-auto p-6">
+                <!-- Messages will be dynamically injected here -->
+            </div>
+            
+            <!-- Input Form -->
+            <form id="message-form" class="p-6 flex items-center space-x-4 border-t border-gray-700 flex-shrink-0">
+                 <input type="file" id="file-input" class="hidden" accept="*">
+                <button type="button" id="attach-button" class="bg-gray-700 text-gray-400 rounded-full p-3 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-blue-500 transition-transform transform hover:scale-110 duration-200">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path></svg>
+                </button>
+                <button type="button" id="emoji-button" class="bg-gray-700 text-gray-400 rounded-full p-3 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-blue-500 transition-transform transform hover:scale-110 duration-200">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </button>
+                <input type="text" id="message-input" class="flex-grow bg-gray-700 border border-gray-600 rounded-full py-3 px-6 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200" placeholder="Type or paste a message/link..." autocomplete="off">
+                <button type="submit" class="bg-blue-600 text-white rounded-full p-3 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-blue-500 transition-transform transform hover:scale-110 duration-200">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                </button>
+            </form>
+
+            <!-- Emoji Picker -->
+            <div id="emoji-picker-container" class="absolute bottom-24 left-6 z-30 hidden">
+                <emoji-picker class="dark"></emoji-picker>
+            </div>
+        </div>
+
+        <!-- Right Panel: Members List -->
+        <div id="members-panel" class="w-72 flex-shrink-0 bg-black/20 backdrop-blur-sm rounded-2xl flex flex-col shadow-lg border border-gray-700 overflow-hidden">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-white">Members Online</h3>
+                <span id="members-count" class="text-sm font-bold bg-gray-700 text-blue-300 rounded-full px-2 py-0.5">0</span>
+            </div>
+            <div id="members-list-container" class="flex flex-col p-4 space-y-3 overflow-y-auto">
+                <!-- Member list will be dynamically injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const modal = document.getElementById('modal');
+        const joinForm = document.getElementById('join-form');
+        const usernameInput = document.getElementById('username');
+        const errorMessage = document.getElementById('error-message');
+        const chatContainer = document.getElementById('chat-container');
+        const messagesContainer = document.getElementById('messages');
+        const messageForm = document.getElementById('message-form');
+        const messageInput = document.getElementById('message-input');
+        const membersListContainer = document.getElementById('members-list-container');
+        const membersCount = document.getElementById('members-count');
+        const emojiButton = document.getElementById('emoji-button');
+        const emojiPickerContainer = document.getElementById('emoji-picker-container');
+        const emojiPicker = document.querySelector('emoji-picker');
+        const attachButton = document.getElementById('attach-button');
+        const fileInput = document.getElementById('file-input');
+        const clockElement = document.getElementById('clock');
+        const chatHeader = document.getElementById('chat-header');
+        const chatTitle = document.getElementById('chat-title');
+        
+        // --- State ---
+        let websocket;
+        let currentUsername = '';
+        let clockInterval;
+        let currentChatContext = { type: 'group', name: 'group' };
+        let messageHistories = { 'group': [] };
+        let unreadCounts = {};
+        const userColors = ['bg-red-500', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500', 'bg-pink-500', 'bg-teal-500', 'bg-indigo-500'];
+        const fileIconSVG = `<svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>`;
+
+        // --- Event Listeners ---
+        joinForm.addEventListener('submit', (e) => { e.preventDefault(); connectToServer(usernameInput.value.trim()); });
+        messageForm.addEventListener('submit', (e) => { e.preventDefault(); sendMessage(); });
+        attachButton.addEventListener('click', () => { emojiPickerContainer.classList.add('hidden'); fileInput.click(); });
+        emojiButton.addEventListener('click', () => { emojiPickerContainer.classList.toggle('hidden'); });
+        emojiPicker.addEventListener('emoji-click', event => { messageInput.value += event.detail.unicode; });
+        chatHeader.addEventListener('click', () => switchChatContext('group'));
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                if (event.target.result.length > 2 * 1024 * 1024) {
+                    displayMessage({ type: 'info', text: 'File is too large (max 2MB).' });
+                    return;
+                }
+                const messageData = { 
+                    sender: currentUsername, 
+                    content: { type: 'file', name: file.name, data: event.target.result }
+                };
+                handleOutgoingMessage(messageData);
+            };
+            reader.readAsDataURL(file);
+            e.target.value = null;
+        });
+
+        // --- UI & Helper Functions ---
+        function updateClock() {
+            const now = new Date();
+            const options = { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+            clockElement.textContent = now.toLocaleTimeString('en-US', options);
+        }
+
+        function getUserColor(username) {
+            let hash = 0;
+            for (let i = 0; i < username.length; i++) hash = username.charCodeAt(i) + ((hash << 5) - hash);
+            return userColors[Math.abs(hash % userColors.length)];
+        }
+
+        function createAvatar(username) {
+            const avatar = document.createElement('div');
+            avatar.className = 'w-8 h-8 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0';
+            avatar.classList.add(getUserColor(username));
+            avatar.textContent = username.charAt(0).toUpperCase();
+            return avatar;
+        }
+
+        function switchChatContext(contextName, contextType = 'group') {
+            const oldActiveEl = document.querySelector('.member-item.bg-blue-600\\/50');
+            if (oldActiveEl) oldActiveEl.classList.remove('bg-blue-600/50');
+
+            currentChatContext = { type: contextType, name: contextName };
+            messagesContainer.innerHTML = '';
+            
+            if (contextType === 'group') {
+                chatTitle.textContent = '💬 Private Chat Room';
+                unreadCounts['group'] = 0;
+                const notificationBadge = document.querySelector(`.member-item[data-username="group"] .notification-badge`);
+                if (notificationBadge) notificationBadge.style.display = 'none';
+            } else {
+                chatTitle.textContent = `🔒 Private Chat with ${contextName}`;
+                unreadCounts[contextName] = 0;
+                const notificationBadge = document.querySelector(`.member-item[data-username="${contextName}"] .notification-badge`);
+                if (notificationBadge) notificationBadge.style.display = 'none';
+            }
+
+            const newActiveEl = document.querySelector(`.member-item[data-username="${contextName}"]`);
+            if (newActiveEl) newActiveEl.classList.add('bg-blue-600/50');
+
+            const history = messageHistories[contextName] || [];
+            history.forEach(msg => displayMessage(msg, true));
+        }
+
+        // --- Core Functions ---
+        function handleOutgoingMessage(messageData) {
+            if (!websocket || websocket.readyState !== WebSocket.OPEN) return;
+
+            if (currentChatContext.type === 'pm') {
+                messageData.type = 'pm';
+                messageData.recipient = currentChatContext.name;
+            } else {
+                 messageData.type = 'chat';
+            }
+            
+            websocket.send(JSON.stringify(messageData));
+            
+            const contextName = currentChatContext.name;
+            if (!messageHistories[contextName]) messageHistories[contextName] = [];
+            messageHistories[contextName].push(messageData);
+            displayMessage(messageData);
+        }
+        
+        function sendMessage() {
+            const messageText = messageInput.value.trim();
+            if (!messageText) return;
+
+            const messageData = { 
+                sender: currentUsername, 
+                content: { type: 'text', value: messageText }
+            };
+            handleOutgoingMessage(messageData);
+            
+            messageInput.value = '';
+            emojiPickerContainer.classList.add('hidden');
+        }
+
+        function connectToServer(username) {
+            currentUsername = username;
+            const host = window.location.hostname || 'localhost';
+            const port = window.location.port || '8765';
+            const wsUrl = `ws://${host}:${port}`;
+            errorMessage.textContent = 'Connecting...';
+
+            websocket = new WebSocket(wsUrl);
+
+            websocket.onopen = () => {
+                websocket.send(JSON.stringify({ type: 'join', username: username }));
+                modal.classList.add('opacity-0', 'pointer-events-none');
+                chatContainer.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
+                messageInput.focus();
+                updateClock();
+                clockInterval = setInterval(updateClock, 1000);
+            };
+
+            websocket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.sender === currentUsername) return;
+
+                let messageContextName = 'group';
+                if (data.type === 'pm') {
+                    messageContextName = data.sender;
+                }
+
+                if (!messageHistories[messageContextName]) {
+                    messageHistories[messageContextName] = [];
+                }
+                messageHistories[messageContextName].push(data);
+
+                if (data.type === 'user_list') {
+                    updateMembersList(data.users);
+                } else if (currentChatContext.name === messageContextName) {
+                    displayMessage(data);
+                } else {
+                    const contextToUpdate = (data.type === 'pm') ? data.sender : 'group';
+                    unreadCounts[contextToUpdate] = (unreadCounts[contextToUpdate] || 0) + 1;
+                    const notificationBadge = document.querySelector(`.member-item[data-username="${contextToUpdate}"] .notification-badge`);
+                    if (notificationBadge) {
+                        notificationBadge.textContent = unreadCounts[contextToUpdate];
+                        notificationBadge.style.display = 'flex';
+                    }
+                }
+            };
+
+            websocket.onclose = (event) => {
+                clearInterval(clockInterval);
+                if (event.code === 1008) errorMessage.textContent = event.reason;
+                else displayMessage({ type: 'info', text: 'Disconnected. Refresh to reconnect.' });
+                modal.classList.remove('opacity-0', 'pointer-events-none');
+                chatContainer.classList.add('opacity-0', 'scale-95');
+                updateMembersList([]);
+            };
+
+            websocket.onerror = (error) => { errorMessage.textContent = 'Connection failed.'; };
+        }
+
+        function updateMembersList(users) {
+            const onlineUsers = users.filter(user => user !== currentUsername);
+            membersCount.textContent = users.length;
+            membersListContainer.innerHTML = ''; 
+
+            const groupChatEl = document.createElement('div');
+            groupChatEl.className = 'member-item flex items-center justify-between p-2 rounded-lg animate-fade-in hover:bg-gray-700 transition-colors duration-200 cursor-pointer';
+            groupChatEl.dataset.username = 'group';
+            groupChatEl.addEventListener('click', () => switchChatContext('group'));
+            groupChatEl.innerHTML = `
+                <div class="flex items-center gap-x-3 flex-grow">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold bg-gray-500">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                    </div>
+                    <span class="text-white font-medium">Group Chat</span>
+                </div>
+                <div class="flex items-center gap-x-2 flex-shrink-0">
+                    <div class="notification-badge"></div>
+                </div>
+            `;
+            membersListContainer.appendChild(groupChatEl);
+            
+            const selfEl = document.createElement('div');
+            selfEl.className = 'member-item flex items-center justify-between p-2 rounded-lg animate-fade-in';
+            selfEl.dataset.username = currentUsername;
+            selfEl.innerHTML = `
+                <div class="flex items-center gap-x-3">
+                    ${createAvatar(currentUsername).outerHTML}
+                    <span class="text-blue-300 font-medium">${currentUsername} (You)</span>
+                </div>
+                <div class="w-2.5 h-2.5 bg-green-500 rounded-full flex-shrink-0"></div>
+            `;
+            membersListContainer.appendChild(selfEl);
+
+            onlineUsers.sort().forEach(username => {
+                const memberEl = document.createElement('div');
+                memberEl.className = 'member-item flex items-center justify-between p-2 rounded-lg animate-fade-in hover:bg-gray-700 transition-colors duration-200 cursor-pointer';
+                memberEl.dataset.username = username;
+                memberEl.addEventListener('click', () => switchChatContext(username, 'pm'));
+                memberEl.innerHTML = `
+                    <div class="flex items-center gap-x-3 flex-grow">
+                        ${createAvatar(username).outerHTML}
+                        <span class="text-white font-medium">${username}</span>
+                    </div>
+                    <div class="flex items-center gap-x-2 flex-shrink-0">
+                        <div class="notification-badge"></div>
+                        <div class="w-2.5 h-2.5 bg-green-500 rounded-full"></div>
+                    </div>
+                `;
+                membersListContainer.appendChild(memberEl);
+
+                const notificationBadge = memberEl.querySelector('.notification-badge');
+                const count = unreadCounts[username] || 0;
+                if (count > 0) {
+                    notificationBadge.textContent = count;
+                    notificationBadge.style.display = 'flex';
+                }
+            });
+            
+            // Update group chat badge
+            const groupNotificationBadge = groupChatEl.querySelector('.notification-badge');
+            const groupCount = unreadCounts['group'] || 0;
+            if (groupCount > 0) {
+                groupNotificationBadge.textContent = groupCount;
+                groupNotificationBadge.style.display = 'flex';
+            }
+
+            const activeEl = document.querySelector(`.member-item[data-username="${currentChatContext.name}"]`);
+            if (activeEl) {
+                activeEl.classList.add('bg-blue-600/50');
+            } else {
+                switchChatContext('group');
+            }
+        }
+
+        function displayMessage(data, isHistory = false) {
+            const el = document.createElement('div');
+            if (!isHistory) el.classList.add('animate-fade-in');
+
+            if (data.type === 'chat' || data.type === 'pm') {
+                const content = data.content;
+                const isMyMessage = data.sender === currentUsername;
+                el.className = `flex items-end gap-x-3 max-w-xl ${isMyMessage ? 'self-end' : 'self-start'}`;
+                
+                const avatar = createAvatar(data.sender);
+                const bubble = document.createElement('div');
+                
+                bubble.className = `px-4 py-3 rounded-2xl ${isMyMessage ? 'rounded-br-none' : 'rounded-bl-none'}`;
+                bubble.style.backgroundImage = isMyMessage 
+                    ? 'linear-gradient(to top right, #14b8a6, #2dd4bf)' 
+                    : 'linear-gradient(to top left, #312e81, #4f46e5)';
+
+                if (!isMyMessage) {
+                    const senderName = document.createElement('p');
+                    senderName.className = 'text-xs text-indigo-300 font-bold mb-1';
+                    senderName.textContent = data.sender;
+                    bubble.appendChild(senderName);
+                }
+
+                const messageContent = document.createElement('div');
+
+                if (content.type === 'file') {
+                    if (content.data.startsWith('data:image/')) {
+                        const image = document.createElement('img');
+                        image.src = content.data;
+                        image.className = 'max-w-xs rounded-lg mt-1';
+                        image.onload = () => messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                        messageContent.appendChild(image);
+                    } else { // Generic file
+                        const fileBlock = document.createElement('a');
+                        fileBlock.href = content.data;
+                        fileBlock.download = content.name;
+                        fileBlock.className = 'flex items-center gap-x-3 bg-black/20 p-3 rounded-lg hover:bg-black/40 transition-colors';
+                        fileBlock.innerHTML = fileIconSVG;
+                        const fileInfo = document.createElement('div');
+                        const fileName = document.createElement('p');
+                        fileName.className = 'text-white font-semibold';
+                        fileName.textContent = content.name;
+                        fileInfo.appendChild(fileName);
+                        fileBlock.appendChild(fileInfo);
+                        messageContent.appendChild(fileBlock);
+                    }
+                } else { // Text
+                     const p = document.createElement('p');
+                     p.className = 'text-white';
+                     p.textContent = content.value;
+                     messageContent.appendChild(p);
+                }
+                
+                bubble.appendChild(messageContent);
+                if (isMyMessage) {
+                    el.appendChild(bubble);
+                    el.appendChild(avatar);
+                } else {
+                    el.appendChild(avatar);
+                    el.appendChild(bubble);
+                }
+
+            } else if (data.type === 'info') {
+                el.className = 'w-full justify-center';
+                const infoText = document.createElement('p');
+                infoText.className = 'text-center text-sm text-gray-400 italic py-2';
+                infoText.textContent = data.text;
+                el.appendChild(infoText);
+            }
+            
+            messagesContainer.appendChild(el);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+    </script>
+</body>
+</html>
+
